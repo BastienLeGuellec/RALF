@@ -7,6 +7,7 @@
 - **Question-Answering Mode**: Ask questions in natural language and get direct answers from your documents.
 - **Retrieval Mode**: Extract the smallest possible quotes that directly answer your query, complete with source highlighting.
 - **Multi-File Support**: Upload and query multiple files at once, including PDF, DOCX, and TXT formats.
+- **Choice of LLM Provider**: Use either OpenAI for powerful cloud-based models or Ollama for local, private models.
 - **Intuitive UI**: A clean and simple interface built with Gradio makes it easy to upload files and interact with the chatbot.
 - **Secure**: Your documents and API key are kept private. Only the necessary API calls leave your machine.
 
@@ -58,13 +59,27 @@
      cp .env.example .env
      ```
 
-   - Open the `.env` file and add your OpenAI API key:
+   - Open the `.env` file and add your OpenAI API key and/or configure Ollama:
 
      ```
+     # For OpenAI (optional)
      OPENAI_API_KEY="YOUR_API_KEY_HERE"
+
+     # For Ollama (optional)
+     OLLAMA_HOST="http://localhost:11434"
+     OLLAMA_MODEL="gemma3n:e2b"
      ```
 
-5. **Run the application**:
+5. **Ollama Setup (if using Ollama)**:
+
+   - Download and install Ollama from [ollama.ai](https://ollama.ai/).
+   - Pull the desired model (e.g., `gemma3n:e2b`):
+
+     ```bash
+     ollama pull gemma3n:e2b
+     ```
+
+6. **Run the application**:
 
    ```bash
    python main.py

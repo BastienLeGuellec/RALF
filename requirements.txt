@@ -6,3 +6,5 @@ gradio==4.21.0
 python-dotenv
 pydantic==2.8.2
 fastapi==0.112.4
+ollama
+requests

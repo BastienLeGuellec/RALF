@@ -1,9 +1,10 @@
 from openai import OpenAI
+import requests
+import json
 
-from config import OPENAI_MODEL, OPENAI_API_KEY
+from config import OLLAMA_HOST, OLLAMA_MODEL
 from corpus import CORPUS
 
-client = OpenAI(api_key=OPENAI_API_KEY)
 
 QA_SYS = (
     "You are a helpful assistant. Use ONLY the information in the documents "
@@ -16,16 +17,57 @@ RET_SYS = (
     "Preface each quote with the filename in brackets if available.\n\n---\n{docs}\n---"
 )
 
-def ask_llm(prompt: str, history: list[dict], mode: str) -> str:
+def ask_llm(prompt: str, history: list[dict], mode: str, llm_provider: str, ollama_model: str, openai_api_key: str) -> str:
+    if llm_provider == "OpenAI":
+        return ask_openai(prompt, history, mode, openai_api_key)
+    elif llm_provider == "Ollama":
+        return ask_ollama(prompt, history, mode, ollama_model)
+    else:
+        raise ValueError(f"Unknown LLM provider: {llm_provider}")
+
+def ask_openai(prompt: str, history: list[dict], mode: str, openai_api_key: str) -> str:
+    if not openai_api_key:
+        raise ValueError("OpenAI API key not configured in UI.")
+    client = OpenAI(api_key=openai_api_key)
     system = QA_SYS if mode == "Question-Answering" else RET_SYS
     msgs = [{"role": "system", "content": system.format(docs=CORPUS.raw)}] \
            + history + [{"role": "user", "content": prompt}]
     rsp = client.chat.completions.create(
-        model=OPENAI_MODEL, messages=msgs,
+        model="gpt-4o", messages=msgs,
         temperature=0 if mode == "Retrieval" else 0.2,
         max_tokens=1024,
     )
     return rsp.choices[0].message.content.strip()
+
+def ask_ollama(prompt: str, history: list[dict], mode: str, ollama_model: str) -> str:
+    system = QA_SYS if mode == "Question-Answering" else RET_SYS
+    msgs = [{"role": "system", "content": system.format(docs=CORPUS.raw)}] \
+           + history + [{"role": "user", "content": prompt}]
+    
+    try:
+        response = requests.post(
+            f"{OLLAMA_HOST}/api/chat",
+            json={"model": ollama_model, "messages": msgs},
+            stream=True # Enable streaming to read line by line
+        )
+        response.raise_for_status()  # Raise an exception for bad status codes
+
+        full_response_content = ""
+        for chunk in response.iter_content(chunk_size=None):
+            if chunk:
+                try:
+                    json_chunk = json.loads(chunk.decode('utf-8'))
+                    if "message" in json_chunk and "content" in json_chunk["message"]:
+                        full_response_content += json_chunk["message"]["content"]
+                except json.JSONDecodeError:
+                    print(f"DEBUG: Could not decode JSON chunk: {chunk.decode('utf-8')}")
+                    # If it's not a valid JSON, it might be the extra data
+                    # For now, we'll just print it and continue, but this is where the problem lies.
+                    pass
+        return full_response_content.strip()
+    except requests.exceptions.RequestException as e:
+        # Handle connection errors and other request issues
+        return f"Error communicating with Ollama: {e}"
 
 def highlight_quotes(raw_answer: str) -> str:
     """Return answer with context & <mark>highlight</mark> for each quote line."""
